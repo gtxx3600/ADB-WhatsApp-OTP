@@ -24,7 +24,7 @@ from typing import Callable, Optional
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8810
 MAX_ITEMS = 200
-OTP_RE = re.compile(r"(?<!\d)(\d{6})(?!\d)")
+OTP_RE = re.compile(r"(?<!\d)(\d{4}|\d{6})(?!\d)")
 DIGITS_RE = re.compile(r"\D+")
 
 
@@ -64,7 +64,7 @@ class OtpStore:
         otp_code = normalize_otp(otp)
         phone_value = normalize_phone(phone)
         if not otp_code:
-            raise ValueError("no 6-digit OTP found")
+            raise ValueError("no 4- or 6-digit OTP found")
         if not phone_value:
             raise ValueError("phone is required")
 

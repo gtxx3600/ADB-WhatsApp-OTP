@@ -1,6 +1,6 @@
 # WhatsApp OTP Tools
 
-Local tools for collecting WhatsApp OTP notifications from Android emulators and showing them in a small copy-friendly web panel.
+Local tools for collecting 4- or 6-digit WhatsApp OTP notifications from Android emulators and showing them in a small copy-friendly web panel.
 
 ## Files
 

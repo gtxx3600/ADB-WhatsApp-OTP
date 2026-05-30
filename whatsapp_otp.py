@@ -28,7 +28,7 @@ DEFAULT_POLL_INTERVAL = 2.0
 DEFAULT_DEDUPE_TTL = 180
 DEFAULT_DEDUPE_MAX = 100
 
-OTP_REGEX = re.compile(r"(?<!\d)(\d{6})(?!\d)")
+OTP_REGEX = re.compile(r"(?<!\d)(\d{4}|\d{6})(?!\d)")
 WHATSAPP_MARKERS = ("com.whatsapp", "whatsapp")
 GOPAY_MARKERS = ("gopay", "go pay", "otp", "kode", "code", "verification", "verifikasi")
 
@@ -239,7 +239,7 @@ def extract_from_dumpsys(text: str, strict_filter: bool = False) -> list[str]:
 
 def parse_args(argv: Optional[list[str]] = None) -> Config:
     parser = argparse.ArgumentParser(
-        description="Forward WhatsApp 6-digit OTP notifications from one ADB device to orchestrator /otp.",
+        description="Forward WhatsApp 4- or 6-digit OTP notifications from one ADB device to orchestrator /otp.",
     )
     parser.add_argument("--device", "-d", default="", help="ADB serial, e.g. emulator-5554 or 127.0.0.1:7555")
     parser.add_argument("--phone", "-p", required=True, help="WhatsApp phone number to include in /otp payload")

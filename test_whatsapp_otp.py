@@ -33,6 +33,12 @@ class WhatsappOtpTests(unittest.TestCase):
             ["adb", "-s", "127.0.0.1:16384", "shell", "echo", "ok"],
         )
 
+    def test_extract_otp_accepts_four_and_six_digit_codes(self):
+        mod = load_module()
+
+        self.assertEqual(mod.extract_otp("WhatsApp GoPay OTP 1234"), "1234")
+        self.assertEqual(mod.extract_otp("WhatsApp GoPay OTP 123456"), "123456")
+
     def test_push_otp_posts_phone_with_otp(self):
         mod = load_module()
         cfg = mod.Config(

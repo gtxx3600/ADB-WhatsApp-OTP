@@ -36,6 +36,14 @@ class ReceiverTests(unittest.TestCase):
         self.assertEqual(store.snapshot()["items"][0]["otp"], "333333")
         self.assertEqual(store.snapshot()["items"][0]["copy_phone"], "81111111111")
 
+    def test_store_accepts_four_digit_otp(self):
+        mod = load_module()
+        store = mod.OtpStore(now=lambda: 1000)
+
+        store.record("code: 1234", "+6281111111111", source="emu-a")
+
+        self.assertEqual(store.snapshot()["items"][0]["otp"], "1234")
+
     def test_store_keeps_more_than_three_phones(self):
         mod = load_module()
         store = mod.OtpStore(now=lambda: 1000)
