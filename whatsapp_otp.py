@@ -64,14 +64,22 @@ class OtpDeduper:
         current = self.now()
         self._prune(current)
         key = (otp, phone)
+        if key not in self._seen:
+            return False
+        self._seen.move_to_end(key)
+        return True
+
+    def mark(self, otp: str, phone: str = "") -> None:
+        current = self.now()
+        self._prune(current)
+        key = (otp, phone)
         if key in self._seen:
             self._seen.move_to_end(key)
             self._seen[key] = current
-            return True
-        self._seen[key] = current
+        else:
+            self._seen[key] = current
         while len(self._seen) > self.max_items:
             self._seen.popitem(last=False)
-        return False
 
     def _prune(self, current: float) -> None:
         expired = [
@@ -95,11 +103,15 @@ def log(message: str) -> None:
 
 
 def extract_otp(line: str, strict_filter: bool = False) -> Optional[str]:
+    otps = extract_otps(line, strict_filter=strict_filter)
+    return otps[0] if otps else None
+
+
+def extract_otps(line: str, strict_filter: bool = False) -> list[str]:
     lowered = line.lower()
     if strict_filter and not any(marker in lowered for marker in GOPAY_MARKERS):
-        return None
-    match = OTP_REGEX.search(line)
-    return match.group(1) if match else None
+        return []
+    return [match.group(1) for match in OTP_REGEX.finditer(line)]
 
 
 def is_whatsapp_line(line: str) -> bool:
@@ -143,7 +155,8 @@ def handle_otp(otp: str, cfg: Config, deduper: OtpDeduper) -> None:
         log(f"[{time.strftime('%H:%M:%S')}] duplicate OTP skipped: {otp} phone={mask_phone(cfg.phone)}")
         return
     log(f"[{time.strftime('%H:%M:%S')}] captured OTP: {otp} phone={mask_phone(cfg.phone)}")
-    push_otp(otp, cfg)
+    if push_otp(otp, cfg):
+        deduper.mark(otp, cfg.phone)
 
 
 def mask_phone(phone: str) -> str:
@@ -178,8 +191,7 @@ def run_logcat(cfg: Config) -> None:
         for line in proc.stdout:
             if not is_whatsapp_line(line):
                 continue
-            otp = extract_otp(line, strict_filter=cfg.strict_filter)
-            if otp:
+            for otp in extract_otps(line, strict_filter=cfg.strict_filter):
                 handle_otp(otp, cfg, deduper)
     finally:
         if proc.poll() is None:
@@ -230,9 +242,7 @@ def extract_from_dumpsys(text: str, strict_filter: bool = False) -> list[str]:
         if not in_whatsapp_block and not is_whatsapp_line(line):
             continue
 
-        otp = extract_otp(line, strict_filter=strict_filter)
-        if otp:
-            otps.append(otp)
+        otps.extend(extract_otps(line, strict_filter=strict_filter))
 
     return otps
 

@@ -39,6 +39,23 @@ class WhatsappOtpTests(unittest.TestCase):
         self.assertEqual(mod.extract_otp("WhatsApp GoPay OTP 1234"), "1234")
         self.assertEqual(mod.extract_otp("WhatsApp GoPay OTP 123456"), "123456")
 
+    def test_extract_otps_returns_all_codes_from_one_line(self):
+        mod = load_module()
+
+        self.assertEqual(
+            mod.extract_otps("WhatsApp old OTP 123456 new OTP 777888"),
+            ["123456", "777888"],
+        )
+
+    def test_dumpsys_extracts_new_code_when_line_contains_old_and_new_codes(self):
+        mod = load_module()
+        text = """
+        NotificationRecord(pkg=com.whatsapp)
+          android.text=old GoPay OTP 123456, new GoPay OTP 777888
+        """
+
+        self.assertEqual(mod.extract_from_dumpsys(text), ["123456", "777888"])
+
     def test_push_otp_posts_phone_with_otp(self):
         mod = load_module()
         cfg = mod.Config(
@@ -70,17 +87,37 @@ class WhatsappOtpTests(unittest.TestCase):
 
     def test_deduper_tracks_otp_and_phone_with_ttl_and_capacity(self):
         mod = load_module()
-        clock = iter([100.0, 100.0, 101.0, 106.1, 107.0, 108.0, 109.0])
+        clock = iter([100.0, 101.0, 106.1])
         deduper = mod.OtpDeduper(ttl_seconds=5, max_items=2, now=lambda: next(clock))
 
-        self.assertFalse(deduper.seen("123456", "+1"))
+        deduper.mark("123456", "+1")
         self.assertTrue(deduper.seen("123456", "+1"))
-        self.assertFalse(deduper.seen("123456", "+2"))
         self.assertFalse(deduper.seen("123456", "+1"))
 
-        self.assertFalse(deduper.seen("222222", "+1"))
-        self.assertFalse(deduper.seen("333333", "+1"))
-        self.assertFalse(deduper.seen("123456", "+2"))
+    def test_deduper_evicts_oldest_item_when_capacity_is_exceeded(self):
+        mod = load_module()
+        deduper = mod.OtpDeduper(ttl_seconds=60, max_items=2)
+
+        deduper.mark("123456", "+1")
+        deduper.mark("222222", "+1")
+        deduper.mark("333333", "+1")
+
+        self.assertFalse(deduper.seen("123456", "+1"))
+        self.assertTrue(deduper.seen("222222", "+1"))
+        self.assertTrue(deduper.seen("333333", "+1"))
+
+    def test_failed_forward_does_not_mark_otp_duplicate(self):
+        mod = load_module()
+        cfg = mod.Config(phone="+6281234567890")
+        deduper = mod.OtpDeduper()
+
+        with mock.patch.object(mod, "push_otp", return_value=False):
+            mod.handle_otp("123456", cfg, deduper)
+
+        with mock.patch.object(mod, "push_otp", return_value=True) as push:
+            mod.handle_otp("123456", cfg, deduper)
+
+        self.assertEqual(push.call_count, 1)
 
 
 if __name__ == "__main__":
