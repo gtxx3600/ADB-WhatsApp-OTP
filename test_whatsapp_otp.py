@@ -119,6 +119,22 @@ class WhatsappOtpTests(unittest.TestCase):
 
         self.assertEqual(push.call_count, 1)
 
+    def test_snapshot_tracker_baselines_first_poll_and_returns_only_new_codes(self):
+        mod = load_module()
+        tracker = mod.OtpSnapshotTracker()
+
+        self.assertEqual(tracker.new_items(["1111", "2222"]), [])
+        self.assertEqual(tracker.new_items(["1111", "2222", "3333"]), ["3333"])
+        self.assertEqual(tracker.new_items(["1111", "2222", "3333"]), [])
+
+    def test_snapshot_tracker_allows_code_after_it_disappears_and_reappears(self):
+        mod = load_module()
+        tracker = mod.OtpSnapshotTracker()
+
+        self.assertEqual(tracker.new_items(["1111"]), [])
+        self.assertEqual(tracker.new_items([]), [])
+        self.assertEqual(tracker.new_items(["1111"]), ["1111"])
+
 
 if __name__ == "__main__":
     unittest.main()

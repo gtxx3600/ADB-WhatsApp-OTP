@@ -90,6 +90,24 @@ class OtpDeduper:
             self._seen.pop(key, None)
 
 
+class OtpSnapshotTracker:
+    def __init__(self):
+        self._previous: set[str] | None = None
+        self.baseline_count = 0
+
+    def new_items(self, current_items: Iterable[str]) -> list[str]:
+        current_ordered = list(dict.fromkeys(current_items))
+        current = set(current_ordered)
+        if self._previous is None:
+            self._previous = current
+            self.baseline_count = len(current)
+            return []
+
+        previous = self._previous
+        self._previous = current
+        return [otp for otp in current_ordered if otp not in previous]
+
+
 def adb_cmd(adb: str, device: str, args: Iterable[str]) -> list[str]:
     cmd = [adb]
     if device:
@@ -212,12 +230,19 @@ def run_poll(cfg: Config) -> None:
     log("[whatsapp-otp] press Ctrl+C to stop")
 
     deduper = OtpDeduper(cfg.dedupe_ttl, cfg.dedupe_max)
+    tracker = OtpSnapshotTracker()
+    baseline_logged = False
     cmd = adb_cmd(cfg.adb, cfg.device, ["shell", "dumpsys", "notification", "--noredact"])
 
     while True:
         try:
             out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=8)
-            for otp in extract_from_dumpsys(out, strict_filter=cfg.strict_filter):
+            snapshot_otps = extract_from_dumpsys(out, strict_filter=cfg.strict_filter)
+            new_otps = tracker.new_items(snapshot_otps)
+            if not baseline_logged:
+                log(f"[{time.strftime('%H:%M:%S')}] poll baseline: {tracker.baseline_count} existing OTP(s) ignored")
+                baseline_logged = True
+            for otp in new_otps:
                 handle_otp(otp, cfg, deduper)
         except subprocess.CalledProcessError as exc:
             log(f"[{time.strftime('%H:%M:%S')}] adb failed: {exc.output.strip()}")
